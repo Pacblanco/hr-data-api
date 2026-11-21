@@ -6,6 +6,12 @@ handling the file itself.
 
 Built with FastAPI, pandas and scikit-learn, packaged with Docker.
 
+**Live API: [hr-data-api-j9yt.onrender.com/docs](https://hr-data-api-j9yt.onrender.com/docs)**
+The service runs on a free instance: the first call may take 30 to 50 seconds
+while it wakes up.
+
+![Interactive documentation of the API](docs/swagger.png)
+
 ## Endpoints
 
 | Method | Path | Description |
@@ -71,6 +77,7 @@ returns a 400 error listing what is missing. The answer gives the prediction
 | `Dockerfile` | image definition |
 | `ibm_hr_attrition.xlsx` | the dataset |
 | `ibm_attrition_model.joblib` | the trained model |
+| `docs/swagger.png` | screenshot of the interactive documentation |
 
 ## Notes and limits
 
