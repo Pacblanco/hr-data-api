@@ -1,9 +1,9 @@
 import uvicorn
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 import pandas as pd
 import logging
 from pydantic import BaseModel
-from typing import List, Literal, Dict, Any
+from typing import List, Literal, Annotated
 import joblib
 
 logging.basicConfig(level=logging.INFO)
@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 description = """
-This API gives access to an HR dataset of 1470 employees (36 columns),
+This API gives access to an HR dataset of 1470 employees (35 columns),
 so that a front-end team can explore it without handling the file itself.
 
 ## Preview
@@ -98,10 +98,6 @@ class Filterby(BaseModel):
     by_category: List[str]
 
 
-class AttritionInput(BaseModel):
-    features: Dict[str, Any]
-
-
 class AttritionOutput(BaseModel):
     Attrition: str
     Probability: float
@@ -166,8 +162,8 @@ def quantile(column: NumericColumn, percent: float = 0.1, top: bool = True):
     return result
 
 
-@app.post("/groupby", tags=["Categorical"], summary="Group by a column and aggregate")
-def group_by(payload: Groupby):
+@app.get("/groupby", tags=["Categorical"], summary="Group by a column and aggregate")
+def group_by(payload: Annotated[Groupby, Query()]):
     """
     Group the dataset by a column and apply an aggregation method.
 
@@ -185,8 +181,8 @@ def group_by(payload: Groupby):
     return result
 
 
-@app.post("/filter-by", tags=["Categorical"], summary="Filter the rows by categories")
-def filter_by(payload: Filterby):
+@app.get("/filter-by", tags=["Categorical"], summary="Filter the rows by categories")
+def filter_by(payload:Annotated[Filterby, Query()]):
     """
     Keep only the rows where the column matches one of the given categories.
 
@@ -198,33 +194,36 @@ def filter_by(payload: Filterby):
     return result
 
 
-@app.post(
+@app.get(
     "/predict-attrition",
     tags=["Predict"],
     summary="Predict the probability that an employee will leave",
     response_model=AttritionOutput,
 )
-def predict_attrition(payload: AttritionInput):
+def predict_attrition(employee_number: int):
     """
     Predict if an employee is likely to leave the company.
 
-    The request must contain the 31 columns used to train the model.
-    A missing column returns a 400 error listing what is missing.
+    Give the number of an employee: the `EmployeeNumber` column of /preview.
+    Numbers go from 1 to 2068, but some numbers do not exist.
+    An unknown number returns a 404 error.
 
     The answer gives the prediction ("Yes" or "No") and the probability
     of leaving, between 0 and 1.
+
+    Demo only: the model was trained on this same dataset, so the results
+    show how the model works, not how well it predicts.
     """
-    data = payload.features
+    df = pd.read_excel("ibm_hr_attrition.xlsx")
+    row = df[df["EmployeeNumber"] == employee_number]
 
-    df_input = pd.DataFrame([data])
+    if row.empty:
+        logger.warning(f"Employee {employee_number} not found")
+        raise HTTPException(status_code=404, 
+                            detail=f"Employee {employee_number} not found")
 
-    missing = [c for c in feature_names if c not in df_input.columns]
-    if missing:
-        logger.warning(f"Missing columns: {missing}")
-        raise HTTPException(status_code=400, detail=f"Missing columns: {missing}")
-
-    prediction = model.predict(df_input)[0]
-    probability = model.predict_proba(df_input)[0][1]
+    prediction = model.predict(row[feature_names])[0]
+    probability = model.predict_proba(row[feature_names])[0][1]
 
     return {
         "Attrition": "Yes" if prediction == 1 else "No",

@@ -20,9 +20,9 @@ while the service wakes up.
 | GET | `/preview` | First rows of the dataset (`rows`, default 10) |
 | GET | `/unique-values` | All different values of a column (`column`) |
 | GET | `/quantile` | Employees with the highest or the lowest values of a numerical column (`column`, `percent`, `top`) |
-| POST | `/groupby` | Group by a category and compute an aggregation (`column`, `by_method`) |
-| POST | `/filter-by` | Keep only the rows of one or more categories (`column`, `by_category`) |
-| POST | `/predict-attrition` | Probability that an employee leaves (`features`) |
+| GET | `/groupby` | Group by a category and compute an aggregation (`column`, `by_method`) |
+| GET | `/filter-by` | Keep only the rows of one or more categories (`column`, `by_category`) |
+| GET | `/predict-attrition` | Probability that an employee leaves (`employee_number`) |
 
 The `column` parameter accepts only some columns:
 
@@ -31,8 +31,9 @@ The `column` parameter accepts only some columns:
 - `/unique-values`: both
 
 Columns with no useful information (identifiers, constant values) are not
-accepted. In `/docs`, the GET endpoints show the accepted columns in a
-drop-down list. For the POST endpoints, the list is in the "Schema" tab.
+accepted. In `/docs`, these parameters show the accepted columns in a
+drop-down list. For `/filter-by`, use `/unique-values` first to know the
+categories of a column.
 
 The interactive documentation is available at `/docs` when the API runs.
 
@@ -63,9 +64,19 @@ curl "http://localhost:7860/quantile?column=DailyRate&percent=0.1&top=true"
 The mean values for each business travel group:
 
 ```bash
-curl -X POST http://localhost:7860/groupby \
-  -H "Content-Type: application/json" \
-  -d '{"column": "BusinessTravel", "by_method": "mean"}'
+curl "http://localhost:7860/groupby?column=BusinessTravel&by_method=mean"
+```
+
+The single and divorced employees:
+
+```bash
+curl "http://localhost:7860/filter-by?column=MaritalStatus&by_category=Single&by_category=Divorced"
+```
+
+The probability that employee number 1 leaves:
+
+```bash
+curl "http://localhost:7860/predict-attrition?employee_number=1"
 ```
 
 ## Prediction model
@@ -75,10 +86,16 @@ standard scaling, one-hot encoding and logistic regression. Its accuracy is
 86%. The model is saved in `ibm_attrition_model.joblib`. It is loaded one
 time, when the API starts.
 
-The request must contain the 31 columns used to train the model. If a column
-is missing, the API returns a 400 error with the list of the missing columns.
-The answer gives the prediction (`"Yes"` or `"No"`) and the probability to
-leave, between 0 and 1.
+You give the number of an employee: the `EmployeeNumber` column of `/preview`.
+The API finds this employee in the dataset and returns the prediction
+(`"Yes"` or `"No"`) and the probability to leave, between 0 and 1. Numbers go
+from 1 to 2068, but some numbers do not exist: an unknown number returns a
+404 error.
+
+This is a demo. The model was trained on this same dataset, so the results
+show how the model works, not how well it predicts. Also, 84% of the employees
+in the dataset stay: a model that always answers "No" would already have 84%
+accuracy.
 
 ## Project structure
 
@@ -102,9 +119,8 @@ leave, between 0 and 1.
 - `scikit-learn` is fixed to the version 1.7.2, the version used to train the
   model. Another version can read the file, but the predictions can change.
 - The model was trained with the column `Unnamed: 0`, an old row index with no
-  meaning. The request must still contain it, but its value changes the
-  result very little. The data endpoints do not return this column anymore:
-  if you copy a row from `/preview`, you must add this field by hand.
+  meaning. The data endpoints hide this column. Its weight in the prediction
+  is very small.
 
 ## Context
 
