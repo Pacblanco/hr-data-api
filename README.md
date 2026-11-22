@@ -1,6 +1,6 @@
 # HR Data API
 
-A REST API that exposes an HR dataset of 1470 employees (36 columns) and a
+A REST API that exposes an HR dataset of 1470 employees (35 columns) and a
 trained attrition model, so that a front-end team can explore the data without
 handling the file itself.
 
@@ -89,6 +89,9 @@ returns a 400 error listing what is missing. The answer gives the prediction
   pagination: the client is expected to handle the volume.
 - `scikit-learn` is pinned to 1.7.2, the version used to train the model.
   A different version can load the file but may change the predictions.
+- The model was trained with the column `Unnamed: 0`, an old row index with no
+  meaning. The request must still contain it. Its weight in the model is very
+  small.
 
 ## Context
 
