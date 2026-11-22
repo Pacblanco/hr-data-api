@@ -90,7 +90,7 @@ def preview(rows: int = 10):
     """
     Get the first rows of the dataset. Default is 10 rows.
     """
-    df = pd.read_excel("ibm_hr_attrition.xlsx")
+    df = pd.read_excel("ibm_hr_attrition.xlsx", index_col=0)
     df10 = df.head(rows)
     df_preview = df10.to_dict(orient="records")
     return df_preview
@@ -102,7 +102,7 @@ def unique(column: str):
     Get all distinct values of a given column.
     Useful to know which categories can be used in /filter-by.
     """
-    df = pd.read_excel("ibm_hr_attrition.xlsx")
+    df = pd.read_excel("ibm_hr_attrition.xlsx",index_col=0)
     df1 = df[column].unique()
     df_unique = df1.tolist()
     return df_unique
@@ -128,7 +128,7 @@ def quantile(column: str, percent: float = 0.1, top: bool = True):
             status_code=400, detail=f"percent value is not acceptable: {percent}"
         )
 
-    df = pd.read_excel("ibm_hr_attrition.xlsx")
+    df = pd.read_excel("ibm_hr_attrition.xlsx",index_col=0)
     if top:
         limit = df[column].quantile(1 - percent)
         df = df[df[column] > limit]
@@ -149,7 +149,7 @@ def group_by(payload: Groupby):
     Only numerical columns are aggregated. Values are rounded to 2 decimals,
     so totals may differ slightly from the raw data.
     """
-    df = pd.read_excel("ibm_hr_attrition.xlsx")
+    df = pd.read_excel("ibm_hr_attrition.xlsx", index_col=0)
     df = (
         df.groupby(payload.column)
         .agg(payload.by_method, numeric_only=True)
@@ -167,7 +167,7 @@ def filter_by(payload: Filterby):
 
     Use /unique-values first to know which categories exist.
     """
-    df = pd.read_excel("ibm_hr_attrition.xlsx")
+    df = pd.read_excel("ibm_hr_attrition.xlsx", index_col=0)
     df = df[df[payload.column].isin(payload.by_category)]
     result = df.to_dict(orient="records")
     return result
