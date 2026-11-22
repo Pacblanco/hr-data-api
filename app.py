@@ -59,14 +59,42 @@ artifact = joblib.load("ibm_attrition_model.joblib")
 model = artifact["model"]
 feature_names = artifact["feature_names"]
 
+NumericColumn = Literal[
+    "Age",
+    "DailyRate",
+    "DistanceFromHome",
+    "HourlyRate",
+    "MonthlyIncome",
+    "MonthlyRate",
+    "NumCompaniesWorked",
+    "PercentSalaryHike",
+    "TotalWorkingYears",
+    "TrainingTimesLastYear",
+    "YearsAtCompany",
+    "YearsInCurrentRole",
+    "YearsSinceLastPromotion",
+    "YearsWithCurrManager",
+]
+
+CategoricalColumn = Literal[
+    "Attrition",
+    "BusinessTravel",
+    "Department",
+    "EducationField",
+    "Gender",
+    "JobRole",
+    "MaritalStatus",
+    "OverTime",
+]
+
 
 class Groupby(BaseModel):
-    column: str
+    column: CategoricalColumn
     by_method: Literal["count", "sum", "mean", "max", "min"] = "mean"
 
 
 class Filterby(BaseModel):
-    column: str
+    column: CategoricalColumn
     by_category: List[str]
 
 
@@ -97,22 +125,19 @@ def preview(rows: int = 10):
 
 
 @app.get("/unique-values", tags=["Preview"], summary="List the values of a column")
-def unique(column: str):
+def unique(column: Literal[CategoricalColumn, NumericColumn]):
     """
     Get all distinct values of a given column.
     Useful to know which categories can be used in /filter-by.
     """
-    df = pd.read_excel("ibm_hr_attrition.xlsx",index_col=0)
+    df = pd.read_excel("ibm_hr_attrition.xlsx", index_col=0)
     df1 = df[column].unique()
     df_unique = df1.tolist()
     return df_unique
 
 
-@app.get(
-        "/quantile", 
-        tags=["Numerical"], 
-        summary="Get the highest or lowest employees")
-def quantile(column: str, percent: float = 0.1, top: bool = True):
+@app.get("/quantile", tags=["Numerical"], summary="Get the highest or lowest employees")
+def quantile(column: NumericColumn, percent: float = 0.1, top: bool = True):
     """
     Get the employees above or below a given quantile of a numerical column.
 
@@ -128,7 +153,7 @@ def quantile(column: str, percent: float = 0.1, top: bool = True):
             status_code=400, detail=f"percent value is not acceptable: {percent}"
         )
 
-    df = pd.read_excel("ibm_hr_attrition.xlsx",index_col=0)
+    df = pd.read_excel("ibm_hr_attrition.xlsx", index_col=0)
     if top:
         limit = df[column].quantile(1 - percent)
         df = df[df[column] > limit]
