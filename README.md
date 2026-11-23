@@ -17,25 +17,44 @@ while the service wakes up.
 | Method | Path | Description |
 |---|---|---|
 | GET | `/` | Check that the API is running |
-| GET | `/preview` | First rows of the dataset (`rows`, default 10) |
+| GET | `/preview` | First rows of the dataset (`rows`, default 10, max 100) |
 | GET | `/unique-values` | All different values of a column (`column`) |
+| GET | `/employee` | Profile of one employee (`employee_number`) |
 | GET | `/quantile` | Employees with the highest or the lowest values of a numerical column (`column`, `percent`, `top`) |
 | GET | `/groupby` | Group by a category and compute an aggregation (`column`, `by_method`) |
-| GET | `/filter-by` | Keep only the rows of one or more categories (`column`, `by_category`) |
+| GET | `/filter-by` | Keep only the employees of the chosen categories (one parameter per text column) |
 | GET | `/predict-attrition` | Probability that an employee leaves (`employee_number`) |
 
 The `column` parameter accepts only some columns:
 
 - `/quantile`: numerical columns
-- `/groupby` and `/filter-by`: text columns
+- `/groupby`: text columns
 - `/unique-values`: both
 
-Columns with no useful information (identifiers, constant values) are not
-accepted. In `/docs`, these parameters show the accepted columns in a
-drop-down list. For `/filter-by`, use `/unique-values` first to know the
-categories of a column.
+`/filter-by` has one parameter for each text column (`Gender`, `Department`,
+`JobRole`...), each with its own list of categories. You can choose values in
+one or more columns. In one column, a row is kept if it matches one of the
+values. Between columns, a row must match all the columns you used.
+
+The `column` parameter accepts only the numerical and text columns.
+Identifiers, constant values and rating columns (such as `JobSatisfaction`
+or `JobLevel`) are not accepted. The rating columns are still in the
+results, and the prediction model uses them. In `/docs`, all these
+parameters show the accepted values in a drop-down list.
 
 The interactive documentation is available at `/docs` when the API runs.
+
+## Errors
+
+The API never answers a wrong request with an empty result. It returns an
+error with a clear message:
+
+- **422**: a parameter is missing or not valid, for example a column that does
+  not exist or a number out of range
+- **400**: the request is valid but cannot be used: `percent` out of range in
+  `/quantile`, or no category chosen in `/filter-by`
+- **404**: no result: unknown employee number, or no employee for the chosen
+  categories
 
 ## Run with Docker
 
@@ -67,15 +86,17 @@ The mean values for each business travel group:
 curl "http://localhost:7860/groupby?column=BusinessTravel&by_method=mean"
 ```
 
-The single and divorced employees:
+The women of the Sales department:
 
 ```bash
-curl "http://localhost:7860/filter-by?column=MaritalStatus&by_category=Single&by_category=Divorced"
+curl "http://localhost:7860/filter-by?Gender=Female&Department=Sales"
 ```
 
-The probability that employee number 1 leaves:
+The profile of employee number 1, then the probability that this employee
+leaves:
 
 ```bash
+curl "http://localhost:7860/employee?employee_number=1"
 curl "http://localhost:7860/predict-attrition?employee_number=1"
 ```
 
@@ -90,7 +111,8 @@ You give the number of an employee: the `EmployeeNumber` column of `/preview`.
 The API finds this employee in the dataset and returns the prediction
 (`"Yes"` or `"No"`) and the probability to leave, between 0 and 1. Numbers go
 from 1 to 2068, but some numbers do not exist: an unknown number returns a
-404 error.
+404 error. To see the profile of this employee, use `/employee` with the same
+number.
 
 This is a demo. The model was trained on this same dataset, so the results
 show how the model works, not how well it predicts. Also, 84% of the employees
@@ -112,10 +134,12 @@ accuracy.
 
 - The aggregated values are rounded to 2 decimals. So a total can be a little
   different from the same total computed on the raw data.
+- In `/quantile`, when many employees share the same value at the limit, the
+  result can contain more employees than the requested share.
 - The Excel file is read again at each request. It is slow, but the data never
   changes, so the result is always correct.
-- `/filter-by` can return the whole dataset, about 1 MB. There is no
-  pagination: the client has to manage this volume.
+- `/filter-by` can still return a large part of the dataset, up to about 1 MB.
+  There is no pagination: the client has to manage this volume.
 - `scikit-learn` is fixed to the version 1.7.2, the version used to train the
   model. Another version can read the file, but the predictions can change.
 - The model was trained with the column `Unnamed: 0`, an old row index with no
